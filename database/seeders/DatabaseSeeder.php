@@ -12,8 +12,8 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
+            AdminUserSeeder::class,
             ProjectSeeder::class,
-            // AdminUserSeeder se agrega en la Fase 3 (auth).
         ]);
     }
 }
