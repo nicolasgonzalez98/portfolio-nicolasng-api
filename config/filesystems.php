@@ -17,6 +17,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Disco de medios (imágenes de proyectos)
+    |--------------------------------------------------------------------------
+    |
+    | Selector del disco donde se guardan las imágenes. Cambiando esta env
+    | se migra entre almacenamientos sin tocar código:
+    |   - dev:  'public' (local, servido vía /storage)
+    |   - prod: 'r2'     (Cloudflare R2)
+    |
+    */
+
+    'media' => env('MEDIA_DISK', 'r2'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |

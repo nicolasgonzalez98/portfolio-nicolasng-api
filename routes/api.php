@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\ImageController as AdminImageController;
 use App\Http\Controllers\Api\Admin\ProjectController as AdminProjectController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProjectController;
@@ -24,6 +25,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::match(['put', 'patch'], '/projects/{project:id}', [AdminProjectController::class, 'update']);
         Route::delete('/projects/{project:id}', [AdminProjectController::class, 'destroy']);
 
-        // Subida/borrado de imágenes (R2) se agrega en 3c.
+        // Imágenes (disco de medios: local en dev, R2 en prod).
+        Route::post('/projects/{project:id}/images', [AdminImageController::class, 'store']);
+        Route::post('/projects/{project:id}/cover', [AdminImageController::class, 'cover']);
+        Route::delete('/images/{image:id}', [AdminImageController::class, 'destroy']);
     });
 });

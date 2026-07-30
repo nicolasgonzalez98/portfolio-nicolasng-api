@@ -7,10 +7,13 @@ use App\Http\Requests\ProjectRequest;
 use App\Http\Resources\AdminProjectListResource;
 use App\Http\Resources\AdminProjectResource;
 use App\Models\Project;
+use App\Services\MediaStorage;
 use Illuminate\Support\Facades\DB;
 
 class ProjectController extends Controller
 {
+    public function __construct(private MediaStorage $media) {}
+
     /**
      * Todos los proyectos (publicados y borradores).
      */
@@ -58,8 +61,13 @@ class ProjectController extends Controller
 
     public function destroy(Project $project)
     {
-        // En 3c: borrar también los objetos de R2 antes de esto.
+        // Borra los objetos del disco (galería + portada) antes de la fila.
         // El borrado en cascada (FK) elimina links e images en la DB.
+        foreach ($project->images as $image) {
+            $this->media->delete($image->key);
+        }
+        $this->media->delete($project->cover_key);
+
         $project->delete();
 
         return response()->json(['message' => 'Proyecto eliminado.']);
