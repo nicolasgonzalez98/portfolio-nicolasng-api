@@ -18,7 +18,8 @@ return [
     'allowed_methods' => ['*'],
 
     'allowed_origins' => array_values(array_filter([
-        env('FRONTEND_URL'),
+        env('FRONTEND_URL'),                    // prod: https://nicolasngonzalez.com
+        'https://www.nicolasngonzalez.com',     // variante con www (por si entran por ahí)
         'http://localhost:4000',
         'http://127.0.0.1:4000',
     ])),
