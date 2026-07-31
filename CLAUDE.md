@@ -15,28 +15,34 @@ y un **panel admin** (CRUD) para gestionarlos sin tocar código.
 - **DB: SQLite en dev / MySQL en prod (Hostinger).** Esquema portable (columnas
   JSON + tipos estándar → andan igual en ambos). Mismo patrón que Nico Camisetas.
 - **Sanctum** (token) para el admin. El `User` ya tiene `HasApiTokens`.
-- **Cloudflare R2** para imágenes: disco `r2` en `config/filesystems.php` (driver
-  `s3`, `region=auto`, `throw=true`). La subida la **intermedia el backend** (las
-  credenciales viven solo en el server) y el borrado es **en cascada** (al borrar
-  proyecto o imagen se elimina el objeto en R2). Vars: `R2_*` en `.env`.
+- **Cloudflare R2** para imágenes ✅ **LIVE en prod (2026-07-30)**: disco `r2` en
+  `config/filesystems.php` (driver `s3`, `region=auto`, `throw=true`), seleccionado por
+  `MEDIA_DISK` (dev=`public` local, prod=`r2`). Bucket `portfolio-nicolasng`, URL pública
+  r2.dev, token scopeado al bucket (Object R&W). La subida la **intermedia el backend** (las
+  credenciales viven solo en el `.env` del server, nunca versionadas — el repo es público) y
+  el borrado es **en cascada** (al borrar proyecto o imagen se elimina el objeto en R2; ver
+  `MediaStorage` + `ImageController`). Vars: `R2_*` en `.env`.
 
-## Roadmap (fases) — intercalar back y front
+## Roadmap (fases) — intercalar back y front — ✅ COMPLETO (todo live)
 - **Fase 0** ✅ Scaffold: Laravel + Sanctum (`install:api`) + Flysystem S3 + disco R2 + `.env`.
-- **Fase 1** Migraciones + modelos (`Project`, `ProjectLink`, `ProjectImage`) +
+- **Fase 1** ✅ Migraciones + modelos (`Project`, `ProjectLink`, `ProjectImage`) +
   **seeder** (migra los proyectos actuales del front) + endpoints públicos
   (`GET /api/projects`, `GET /api/projects/{slug}`).
-- **Fase 2** Conectar el front Next a la API (reemplazar los proyectos hardcodeados por fetch).
-- **Fase 3** Auth (login Sanctum) + CRUD admin + subida/borrado de imágenes en R2.
-- **Fase 4** Deploy a Hostinger (API + MySQL) + CORS (`FRONTEND_URL`) + env.
+- **Fase 2** ✅ Conectar el front Next a la API (reemplazar los proyectos hardcodeados por fetch).
+- **Fase 3** ✅ Auth (login Sanctum) + CRUD admin + subida/borrado de imágenes en R2.
+- **Fase 4** ✅ Deploy a Hostinger (API + MySQL) + CORS (`FRONTEND_URL`) + env. **LIVE en `https://api.nicolasngonzalez.com`.**
 
-## Modelo de dominio (a implementar en Fase 1, viene del diseño validado en Prisma)
+## Modelo de dominio (✅ implementado)
 - **Project**: `slug` (unique), `title`, `year` (nullable), `category`
-  (enum: `DESTACADO` | `JS_REACT` | `PYTHON` | `TRABAJO_PROFESIONAL`), `summary`,
-  `description` (text, **texto plano** — decisión del usuario, NO markdown),
-  `stack` (JSON), `features` (JSON), `featured` (bool), `published` (bool), `order` (int).
+  (enum: `DESTACADO` | `JS_REACT` | `PYTHON` | `TRABAJO_PROFESIONAL`), `status` (nullable),
+  `summary`, `description` (text, **texto plano** — decisión del usuario, NO markdown),
+  `cover_url` + `cover_key` (portada), `stack` (JSON), `features` (JSON),
+  `tech_decisions` (JSON, nullable — lista de `{title, description}`),
+  `featured` (bool), `published` (bool), `order` (int).
 - **ProjectLink**: `type` (`WEBSITE` | `REPO` | `DEMO`), `label` (nullable), `url`. onDelete cascade.
 - **ProjectImage**: `url`, `key` (object key de R2, para borrarlo), `alt` (nullable), `order`. onDelete cascade.
-- Ojo: **DecorGlass** es nombre propio real, NO traducir/renombrar.
+- Ojo: **DecorGlass** (`presupuestos_mauri`) es nombre propio real, NO traducir/renombrar (el
+  contenido descriptivo sí está en español).
 
 ## Quirks del entorno (Windows 10 + Laragon) — IMPORTANTE
 - **PHP y Composer NO están en el PATH.** Usar rutas completas:
@@ -56,8 +62,44 @@ y un **panel admin** (CRUD) para gestionarlos sin tocar código.
 - Para archivos temporales usar el scratchpad de la sesión, no `/tmp`.
 - `git commit -F <archivo>` (las comillas en `-m` rompen en esta PC).
 
-## Deploy (Fase 4, pendiente)
-Hostinger compartido corre PHP → Laravel va nativo. Falta confirmar si el plan es
-**Premium o Business** (afecta detalles del deploy, no la viabilidad). DB: MySQL de
-Hostinger (descomentar el bloque `mysql` en `.env`). Front ya hosteado y funcional en
-Hostinger bajo `nicolasngonzalez.com`.
+## Deploy ✅ HECHO — API live en `https://api.nicolasngonzalez.com`
+Hostinger **Premium** (corre PHP **y** Node vía Passenger). Deploy **MANUAL por SSH**
+(usuario `u689345803`, home `/home/u689345803`).
+
+**Estructura** (patrón copiado de `apicamisetas.nicolasngonzalez.com`, que ya andaba):
+- App Laravel en `~/domains/api.nicolasngonzalez.com/laravel/` (clon de este repo).
+- `~/domains/api.nicolasngonzalez.com/public_html/` = el `public/` de Laravel: su `index.php`
+  apunta a `../laravel/vendor` y `../laravel/bootstrap`, + symlink `public_html/storage → laravel/storage/app/public`.
+- **DB MySQL**: `u689345803_portfolio` (user `u689345803_portfolio`, host `localhost`), migrada + seedeada.
+
+**⚠️ QUIRK CLAVE — `proc_open` deshabilitado en el PHP CLI de Hostinger:** rompe el auto-deploy
+Git de Hostinger y los *scripts* de Composer (`package:discover` "relies on proc_open"). PERO:
+`composer install --no-dev` **igual baja el `vendor/`** (solo falla el script final, ignorable), y
+los `php artisan` corridos **a mano por SSH andan perfecto**. → **No hay auto-deploy; se hace a mano.**
+
+**Procedimiento de redeploy (cambios de código):**
+```bash
+cd ~/domains/api.nicolasngonzalez.com/laravel
+git pull origin main
+composer install --no-dev -o        # solo si cambiaron dependencias; ignorar el error del script final
+php artisan migrate --force         # solo si hay migraciones nuevas
+php artisan config:clear && php artisan config:cache   # SIEMPRE (ver gotcha)
+```
+
+**⚠️ Gotcha `config:cache`:** en prod la config está **cacheada** (`php artisan config:cache`,
+perf). Por eso, tras **cualquier** `git pull` o cambio de `.env`, hay que `config:clear` +
+`config:cache` de nuevo, o los cambios del `.env` **NO toman efecto**. `route:cache` NO se usa
+(hay un closure `Route::get('/', fn)` en `routes/web.php` que lo rompería; win menor, deferido).
+
+**⚠️ NO re-seedear prod NUNCA:** `ProjectSeeder` borra y recrea links+imágenes de cada proyecto
+→ borraría las **capturas subidas a R2 por el panel** (y dejaría objetos huérfanos en el bucket).
+El seeder ya cumplió su función (migración inicial); de acá en más **el contenido de prod se
+gestiona SOLO por el panel admin**.
+
+**CORS** (`config/cors.php`): orígenes = `FRONTEND_URL` (`https://nicolasngonzalez.com`) +
+`https://www.nicolasngonzalez.com` + localhost:4000. Auth por token (header), `supports_credentials=false`.
+
+**Front:** live en `https://nicolasngonzalez.com` como app **Next.js bajo Node/Passenger**
+(`~/domains/nicolasngonzalez.com/nodejs/`), con **auto-deploy** al pushear a `main` del repo
+`Portfolio-NicolasGonzalez`. La URL de la API se hornea vía `.env.production`. (Vercel se
+**desconectó** el 2026-07-30 para tener un solo sitio canónico.)
